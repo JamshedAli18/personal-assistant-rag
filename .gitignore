@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+env/
+
+# Environment
+.env
+
+# IDEs
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# uv
+.venv/
+
+# Don't ignore requirements.txt (needed for Render)
+!requirements.txt
+
+# PDF should be committed for deployment
+# Remove this line if you don't want to commit the PDF
+info.pdf
