@@ -21,11 +21,9 @@ env/
 Thumbs.db
 
 # uv
-.venv/
+# uv.lock is now included for Render deployment
+# uv.lock
 
-# Don't ignore requirements.txt (needed for Render)
-!requirements.txt
-
-# PDF should be committed for deployment
-# Remove this line if you don't want to commit the PDF
-info.pdf
+# Data
+# *.pdf is now included for RAG data
+# *.pdf
