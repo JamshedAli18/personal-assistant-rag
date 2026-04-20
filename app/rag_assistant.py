@@ -7,7 +7,6 @@ from langchain_pinecone import PineconeVectorStore
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_classic.prompts import PromptTemplate
-from langchain_classic.chains import ConversationalRetrievalChain
 from pinecone import Pinecone, ServerlessSpec
 from .config import settings
 
@@ -204,14 +203,27 @@ Answer:"""
             input_variables=["context", "chat_history", "question"]
         )
         
-        self.qa_chain = ConversationalRetrievalChain.from_llm(
-            llm=self.llm,
-            retriever=self.vector_store.as_retriever(
-                search_type="similarity",
-                search_kwargs={"k": 6}
-            ),
-            combine_docs_chain_kwargs={"prompt": PROMPT},
-            return_source_documents=True
+        # We'll use a simpler, more controllable 2-step process manually
+        # to ensure the "standalone question" is generated perfectly.
+        
+        self.condense_prompt = PromptTemplate(
+            template="""Given the following conversation and a follow-up question, rephrase the follow-up question to be a standalone question, in its original language.
+            
+            Chat History:
+            {chat_history}
+            
+            Follow Up Input: {question}
+            Standalone question:""",
+            input_variables=["chat_history", "question"]
+        )
+        
+        self.qa_prompt = PROMPT
+        
+        self.qa_prompt = PROMPT
+        # We'll use the vector store as a retriever manually
+        self.retriever = self.vector_store.as_retriever(
+            search_type="similarity",
+            search_kwargs={"k": 6}
         )
         
         print("OK: QA chain setup complete")
@@ -246,29 +258,52 @@ Answer:"""
         print("\n=== RAG Assistant is ready! ===\n")
         
     def ask(self, question: str, session_id: str = "default_session"):
-        """Ask a question about Jamshed Ali with session memory"""
-        if not self.qa_chain:
+        """Ask a question about Jamshed Ali with manual session context handling"""
+        if not self.retriever:
             raise Exception("Please initialize the assistant first using .initialize()")
             
-        # Get chat history for this session (list of tuples for ConversationalRetrievalChain)
-        history = self.chat_histories.get(session_id, [])
+        # Get chat history for this session
+        history_list = self.chat_histories.get(session_id, [])
         
-        # Invoke the chain
-        # NOTE: ConversationalRetrievalChain uses "question" (not "query") and "chat_history"
-        response = self.qa_chain.invoke({
-            "question": question,
-            "chat_history": history
-        })
-        
-        answer = response["answer"]
-        
-        # Update history (keep last 5 MESSAGES as requested)
-        # 1 QA pair = 2 messages. 5 messages = 2.5 pairs.
-        # We will keep the last 3 rounds (6 messages) to maintain full context.
-        history.append((question, answer))
-        if len(history) > 3:
-            history = history[-3:]
+        # Format history string for the LLM
+        history_str = ""
+        for q, a in history_list:
+            history_str += f"Human: {q}\nAI: {a}\n"
             
-        self.chat_histories[session_id] = history
+        # Step 1: Generate standalone question if history exists
+        standalone_question = question
+        if history_str:
+            condense_input = self.condense_prompt.format(
+                chat_history=history_str,
+                question=question
+            )
+            # Use Groq to rephrase safely
+            standalone_question_response = self.llm.invoke(condense_input)
+            standalone_question = standalone_question_response.content
+            
+            # Simple cleanup of LLM prefixes
+            if ":" in standalone_question and len(standalone_question.split(":")[0]) < 25:
+                 standalone_question = standalone_question.split(":", 1)[1].strip()
+
+        # Step 2: Retrieve relevant documents
+        docs = self.retriever.invoke(standalone_question)
+        context_str = "\n\n".join([doc.page_content for doc in docs])
+        
+        # Step 3: Generate final answer with the full portfolio persona prompt
+        final_input = self.qa_prompt.format(
+            context=context_str,
+            chat_history=history_str,
+            question=question
+        )
+        
+        answer_response = self.llm.invoke(final_input)
+        answer = answer_response.content
+        
+        # Update history (STRICT LIMIT: Keep last 2 rounds = 4 messages)
+        history_list.append((question, answer))
+        if len(history_list) > 2:
+            history_list = history_list[-2:]
+            
+        self.chat_histories[session_id] = history_list
         
         return answer
