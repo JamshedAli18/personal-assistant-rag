@@ -60,9 +60,10 @@ async def ask_question(request: QuestionRequest):
     Ask a question about Jamshed Ali
     
     - **question**: Your question about Jamshed Ali's skills, projects, experience, etc.
+    - **session_id**: Unique session ID to maintain conversation memory.
     """
     try:
-        answer = assistant.ask(request.question)
+        answer = assistant.ask(request.question, request.session_id)
         return {
             "question": request.question,
             "answer": answer

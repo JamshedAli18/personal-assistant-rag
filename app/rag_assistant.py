@@ -7,7 +7,7 @@ from langchain_pinecone import PineconeVectorStore
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_classic.prompts import PromptTemplate
-from langchain_classic.chains import RetrievalQA
+from langchain_classic.chains import ConversationalRetrievalChain
 from pinecone import Pinecone, ServerlessSpec
 from .config import settings
 
@@ -35,6 +35,9 @@ class PortfolioRAGAssistant:
         
         self.vector_store = None
         self.qa_chain = None
+        
+        # Simple session-based memory store
+        self.chat_histories = {}
         
     def load_and_chunk_pdf(self):
         """Load PDF and split into chunks"""
@@ -96,6 +99,9 @@ class PortfolioRAGAssistant:
 
 ### CONTEXT:
 {context}
+
+### CHAT HISTORY:
+{chat_history}
 
 ### RESPONSE RULES:
 
@@ -188,18 +194,17 @@ Answer:"""
 
         PROMPT = PromptTemplate(
             template=template,
-            input_variables=["context", "question"]
+            input_variables=["context", "chat_history", "question"]
         )
         
-        self.qa_chain = RetrievalQA.from_chain_type(
+        self.qa_chain = ConversationalRetrievalChain.from_llm(
             llm=self.llm,
-            chain_type="stuff",
             retriever=self.vector_store.as_retriever(
                 search_type="similarity",
                 search_kwargs={"k": 6}
             ),
-            return_source_documents=True,
-            chain_type_kwargs={"prompt": PROMPT}
+            combine_docs_chain_kwargs={"prompt": PROMPT},
+            return_source_documents=True
         )
         
         print("OK: QA chain setup complete")
@@ -233,10 +238,28 @@ Answer:"""
         
         print("\n=== RAG Assistant is ready! ===\n")
         
-    def ask(self, question: str):
-        """Ask a question about Jamshed Ali"""
+    def ask(self, question: str, session_id: str = "default_session"):
+        """Ask a question about Jamshed Ali with session memory"""
         if not self.qa_chain:
             raise Exception("Please initialize the assistant first using .initialize()")
             
-        response = self.qa_chain.invoke({"query": question})
-        return response["result"]
+        # Get chat history for this session (list of tuples for ConversationalRetrievalChain)
+        history = self.chat_histories.get(session_id, [])
+        
+        # Invoke the chain
+        # NOTE: ConversationalRetrievalChain uses "question" (not "query") and "chat_history"
+        response = self.qa_chain.invoke({
+            "question": question,
+            "chat_history": history
+        })
+        
+        answer = response["answer"]
+        
+        # Update history (keep last 5 exchanges)
+        history.append((question, answer))
+        if len(history) > 5:
+            history = history[-5:]
+            
+        self.chat_histories[session_id] = history
+        
+        return answer
