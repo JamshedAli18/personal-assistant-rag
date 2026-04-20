@@ -38,12 +38,12 @@ class PortfolioRAGAssistant:
         
     def load_and_chunk_pdf(self):
         """Load PDF and split into chunks"""
-        print("📄 Loading PDF...")
+        print("[PDF] Loading PDF...")
         
         loader = PyPDFLoader(self.pdf_path)
         documents = loader.load()
         
-        print(f"✅ Loaded {len(documents)} pages from PDF")
+        print(f"OK: Loaded {len(documents)} pages from PDF")
         
         text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=500,
@@ -53,15 +53,13 @@ class PortfolioRAGAssistant:
         )
         
         chunks = text_splitter.split_documents(documents)
-        print(f"✅ Created {len(chunks)} chunks")
+        print(f"OK: Created {len(chunks)} chunks")
         
         return chunks
         
-    def setup_pinecone(self):
+    def setup_pinecone(self, pc):
         """Initialize Pinecone index"""
-        print("🌲 Setting up Pinecone...")
-        
-        pc = Pinecone(api_key=settings.PINECONE_API_KEY)
+        print("[Pinecone] Setting up index...")
         
         if settings.PINECONE_INDEX_NAME not in pc.list_indexes().names():
             print(f"Creating new index: {settings.PINECONE_INDEX_NAME}")
@@ -76,11 +74,11 @@ class PortfolioRAGAssistant:
             )
             print("✅ Index created successfully")
         else:
-            print(f"✅ Using existing index: {settings.PINECONE_INDEX_NAME}")
+            print(f"OK: Using existing index: {settings.PINECONE_INDEX_NAME}")
             
     def create_vector_store(self, chunks):
         """Create vector store from chunks"""
-        print("🔍 Creating vector store...")
+        print("[VectorStore] Creating vector store...")
         
         self.vector_store = PineconeVectorStore.from_documents(
             documents=chunks,
@@ -88,11 +86,11 @@ class PortfolioRAGAssistant:
             index_name=settings.PINECONE_INDEX_NAME
         )
         
-        print("✅ Vector store created successfully")
+        print("OK: Vector store created successfully")
         
     def setup_qa_chain(self):
         """Setup the QA chain with improved custom prompt"""
-        print("⚙️ Setting up QA chain...")
+        print("[QAChain] Setting up QA chain...")
         
         template = """You are the personal assistant of Jamshed Ali, a professional AI Engineer from Karachi, Pakistan. Use the following context from his resume to answer questions.
 
@@ -204,18 +202,36 @@ Answer:"""
             chain_type_kwargs={"prompt": PROMPT}
         )
         
-        print("✅ QA chain setup complete")
+        print("OK: QA chain setup complete")
         
     def initialize(self):
-        """Initialize the complete RAG system"""
-        print("\n🚀 Initializing Portfolio RAG Assistant...\n")
+        """Initialize the complete RAG system with smart caching"""
+        print("\n=== Initializing Portfolio RAG Assistant ===\n")
         
-        chunks = self.load_and_chunk_pdf()
-        self.setup_pinecone()
-        self.create_vector_store(chunks)
+        # 1. Setup Pinecone Index
+        pc = Pinecone(api_key=settings.PINECONE_API_KEY)
+        self.setup_pinecone(pc)
+        
+        # 2. Check if index is already populated
+        index = pc.Index(settings.PINECONE_INDEX_NAME)
+        stats = index.describe_index_stats()
+        total_vectors = stats.get('total_vector_count', 0)
+        
+        if total_vectors > 0:
+            print(f"OK: Found {total_vectors} existing vectors in Pinecone. Skipping PDF processing.")
+            self.vector_store = PineconeVectorStore(
+                index=index,
+                embedding=self.embeddings
+            )
+        else:
+            print("💡 Index is empty. Starting PDF processing...")
+            chunks = self.load_and_chunk_pdf()
+            self.create_vector_store(chunks)
+        
+        # 3. Setup the QA Chain
         self.setup_qa_chain()
         
-        print("\n✅ RAG Assistant is ready!\n")
+        print("\n=== RAG Assistant is ready! ===\n")
         
     def ask(self, question: str):
         """Ask a question about Jamshed Ali"""
