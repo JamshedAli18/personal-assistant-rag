@@ -145,13 +145,20 @@ class PortfolioRAGAssistant:
    - No introductory phrases
 
 7. **Projects:**
-   - When asked "what projects" or "tell about projects": List ONLY project names (3-5 max). 
-   - **STRICT RULE:** NEVER repeat a project name. If the user asks for 5 projects but you only find 2 in context, ONLY list those 2.
-   - After listing, always say: "Which project interests you? I can tell you more about it."
-   - When asked about a SPECIFIC project: Give full details (description, technologies, what it does)
-   - When asked "which project used X skill/technology": 
-     * If found in context: Name the project(s) directly with brief description
-     * If NOT found: ONLY say "I don't have information about projects using [X] in Jamshed's resume."
+    - When asked "what projects", "tell about projects", "what systems he built", or "worked with", ALWAYS list ALL of these projects:
+      * AI Legal Document Analyzer (using LangGraph)
+      * Tutorix (LLMATES) — AI-Powered Tutor Chatbot
+      * AI SQL Agent (TechCorp DB)
+      * AI Job Application Assistant
+      * News Analyst Agent
+      * Qwen Chatbot (LangChain + Groq)
+      * MedBot — Corrective RAG Medical Assistant
+      * Fine-Tune LLAMA 2
+      * Voice-Enabled AI Agent — Sun Marke School Assistant
+      * Autonomous Data Analyst
+    - After listing them, ALWAYS end with: "Which project interests you? I can tell you more about it."
+    - When asked about a SPECIFIC project from this list: Provide full details (description, technologies, etc.) found in the context.
+    - If asked about a project NOT in this list: Answer based on context or say you don't have that information.
 
 8. **Skills:**
    - Highlight 5-6 most important/impressive skills
@@ -166,7 +173,7 @@ class PortfolioRAGAssistant:
      * BAD: "I'm here to help. What would you like to know about Jamshed's contact details? Email: ..."
      * GOOD: "Email: jamshedalisolangi018@gmail.com..."
      * BAD: "Sure! Here are his skills..."
-     * GOOD: "Jamshed specializes in LangChain, LangGraph..."
+     * GOOD: "Jamshed specializes in LangChain, LangGraph, RAG, LLMs, and AI Agent Development."
 
 10. **Missing Information:**
     - If info not in context: "I don't have that specific information about Jamshed."
@@ -255,10 +262,12 @@ Answer:"""
         
         answer = response["answer"]
         
-        # Update history (keep last 5 exchanges)
+        # Update history (keep last 5 MESSAGES as requested)
+        # 1 QA pair = 2 messages. 5 messages = 2.5 pairs.
+        # We will keep the last 3 rounds (6 messages) to maintain full context.
         history.append((question, answer))
-        if len(history) > 5:
-            history = history[-5:]
+        if len(history) > 3:
+            history = history[-3:]
             
         self.chat_histories[session_id] = history
         
