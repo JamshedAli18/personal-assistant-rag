@@ -40,5 +40,3 @@ uv sync
 uv run uvicorn main:app --reload
 ```
 
-## Deployment
-Deployed on Render: [Your Render URL]
