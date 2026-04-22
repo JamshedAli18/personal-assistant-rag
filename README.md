@@ -1,6 +1,6 @@
 # Jamshed Ali Portfolio Assistant
 
-A RAG-based AI assistant to answer questions about Jamshed Ali's portfolio, skills, and projects.
+A RAG-based AI assistant to answer questions about Jamshed Ali's portfolio, skills, and projects. 
 
 ## Features
 - LangChain + LangGraph expertise
