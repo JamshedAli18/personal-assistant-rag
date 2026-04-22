@@ -18,22 +18,8 @@ Health check
 Service status
 
 ### `POST /ask`
-Ask a question about Jamshed Ali
+Ask a question about me
 
-**Request:**
-```json
-{
-  "question": "What are Jamshed's skills?"
-}
-```
-
-**Response:**
-```json
-{
-  "question": "What are Jamshed's skills?",
-  "answer": "Jamshed specializes in LangChain, LangGraph..."
-}
-```
 
 ### `GET /test`
 Run test questions
