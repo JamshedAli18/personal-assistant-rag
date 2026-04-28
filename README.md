@@ -4,7 +4,7 @@ A RAG-based AI assistant to answer questions about Jamshed Ali's portfolio, skil
 
 ## Features
 - LangChain + LangGraph expertise
-- RAG pipeline with Pinecone vector database
+- RAG pipeline with Pinecone vector database 
 - Groq LLM (Llama 3.1 8B)
 - Cohere embeddings
 - FastAPI REST API
